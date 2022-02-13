@@ -1,3 +1,4 @@
-terminaltables
-jsonschema
-wxpython
+pandas==0.24.2
+jsonschema==2.5.1
+terminaltables==2.1.0
+wxpython==4.0.1

@@ -5,6 +5,7 @@ import sys
 import terminaltables
 
 from backend.ElectionCandidateState import ElectionCandidateState
+import backend.ElectionQuotas as quotas
 from backend.ElectionRaceError import ElectionRaceError
 from backend.ElectionRaceRound import ElectionRaceRound
 
@@ -12,11 +13,13 @@ from backend.ElectionRaceRound import ElectionRaceRound
 class ElectionRace:
     (ADDING, TABULATING, COMPLETE) = range(3)
 
-    def __init__(self, election_id, election_position, election_max_winners, election_extended_data):
+    def __init__(self, election_id, election_position, election_max_winners, election_extended_data,
+                 election_quota_algorithm):
         self._id = election_id
         self._position = election_position
         self._max_winners = election_max_winners
         self._extended_data = election_extended_data
+        self._election_quota_algorithm = election_quota_algorithm
         self._state = self.ADDING
 
         self._voters = []
@@ -62,24 +65,16 @@ class ElectionRace:
         """Return the maximum number of winners in the election race."""
         return self._max_winners
 
-    def droop_quota(self):
-        """Return the droop quota for the election race.
 
-        This value returned will always be an integer value and is calculated
-        based upon the number of voters and the maximum number of winners.
+    def quota(self):
+        if self._election_quota_algorithm == "droop":
+            quota_provider = quotas.DroopQuota(voters=len(self._voters), max_winners=self._max_winners)
+        if self._election_quota_algorithm == "hare":
+            quota_provider = quotas.HareQuota(voters=len(self._voters), max_winners=self._max_winners)
+        return quota_provider.get_quota()
 
-        - If the number of winners is greater than one, then the droop quota is
-        calculated as: (# of voters)/(max. # of winners + 1) + 1.
-        - If the number of winners is just one, then the droop quota is calculated
-        as: (# of voters + 1)/2.
-        """
-        return_value = 0
-        if self._max_winners > 1:
-            return_value = int((len(self._voters) / (self._max_winners + 1)) + 1)
-        elif self._max_winners == 1:
-            return_value = int((len(self._voters) + 1) / 2)
-
-        return return_value if return_value > 0 else 1
+    def quota_name(self):
+        return self._election_quota_algorithm
 
     def add_voter(self, voter):
         """Adds a voter to the race.
@@ -121,7 +116,7 @@ class ElectionRace:
         return self._candidate_id[candidate_id]
 
     def get_round_latest(self):
-        """Returns the latest round of the ElectionRace or NoneType if there are no rounds."""
+        """Returns the latest round of the ElectionRace stor NoneType if there are no rounds."""
         if not self._rounds:
             return None
 
@@ -144,13 +139,13 @@ class ElectionRace:
         - Candidate Party
         - Candidate State
         - Candidate Score
-        - Droop Quota Percentage
+        - Quota Percentage
         """
         def round_down(value, places):
             return math.floor(value * (10 ** places)) / (10 ** places)
 
         table_data = []
-        droop_quota = election_round.parent().droop_quota()
+        quota = election_round.parent().quota()
         score_resolution = 4
         previous_round = election_round.parent().get_round_previous(election_round)
         previous_round_candidates_changed = []
@@ -177,8 +172,8 @@ class ElectionRace:
                 _candidate.name(),
                 _candidate.party(),
                 "WON",
-                str(droop_quota) + " (" + str(round_down(_candidate_score, score_resolution)) + ")",
-                str(_candidate_score / droop_quota)
+                str(quota) + " (" + str(round_down(_candidate_score, score_resolution)) + ")",
+                str(_candidate_score / quota)
             ])
 
         # Running candidates are sorted in the following order:
@@ -193,7 +188,7 @@ class ElectionRace:
                 _candidate.party(),
                 "RUNNING",
                 str(round_down(_candidate_score, score_resolution)),
-                str(_candidate_score / droop_quota)
+                str(_candidate_score / quota)
             ])
 
         # Eliminated candidates are sorted in the following order:
@@ -216,6 +211,10 @@ class ElectionRace:
             ])
 
         return table_data
+
+    def run_complete(self):
+        while self._state != self.COMPLETE:
+            self.run()
 
     def run(self):
         """Runs a single step of the race."""
@@ -329,18 +328,18 @@ class ElectionRace:
         # Calculate the maximum number of winners that can be taken this round.
         max_round_winners = self._max_winners - len(self._winners)
 
-        # Check if the number of running candidates is less than or equal to the number of maximum
+        # Check if the number of running candidates is less than stor equal to the number of maximum
         # round winners.
         if len(running_candidates) <= max_round_winners:
-            self.logger.info("(Race: %s, Round: %s) Total number of remaining running candidates is less than or equal to remaining spots.", self, current_round)
+            self.logger.info("(Race: %s, Round: %s) Total number of remaining running candidates is less than stor equal to remaining spots.", self, current_round)
             # Add all the candidates that are still running to the winning candidates list.
             for candidate in running_candidates:
                 current_round_winners.append(candidate)
         else:
-            # Check for a candidate that has managed to meet the droop quota.
+            # Check for a candidate that has managed to meet the quota.
             for candidate in sorted(current_round_scores, key=current_round_scores.get, reverse=True):
-                if candidate in running_candidates and current_round_scores[candidate] >= self.droop_quota():
-                    self.logger.info("(Race: %s, Round: %s) Candidate `%s` has met the droop quota of %d.", self, current_round, candidate, self.droop_quota())
+                if candidate in running_candidates and current_round_scores[candidate] >= self.quota():
+                    self.logger.info("(Race: %s, Round: %s) Candidate `%s` has met the quota of %d.", self, current_round, candidate, self.quota())
                     current_round_winners.append(candidate)
 
         # Check if current round winners is greater than available spots.
@@ -394,11 +393,11 @@ class ElectionRace:
             candidate_voters = current_round.get_candidate_voters(candidate)
             candidate_ballots = current_round.get_candidate_ballots(candidate)
 
-            # Check if the candidate was added because the candidate met the droop quota
-            # or if the candidate was added because the number of candidates running
-            # was less than or equal to the max number of winners.
+            # Check if the candidate was added because the candidate met the quota
+            # stor if the candidate was added because the number of candidates running
+            # was less than stor equal to the max number of winners.
             candidate_score = current_round_scores[candidate]
-            surplus = candidate_score - self.droop_quota()
+            surplus = candidate_score - self.quota()
             transfer_value = 1
             if surplus > 0:
                 transfer_value = float(surplus) / candidate_score

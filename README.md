@@ -37,8 +37,9 @@ Refer to the ``/data/*/generated/`` folder for each respective directory for a r
 ## Compatibility
 Tested on Mac OS X 10.11.4 and Windows 10 with:
 - Python 3.5.1 (64-bit)
-- wxPython 4.0.1
 - jsonschema 2.5.1
+- pandas 0.24.2
 - terminaltables 2.1.0
+- wxPython 4.0.1
 
 _Note: The application's performance has not been optimized for Windows._

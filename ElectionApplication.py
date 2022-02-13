@@ -4,6 +4,7 @@ import os
 import logging
 import logging.handlers
 import interfaces.gui
+import interfaces.cmd
 
 
 def main(argv=None):
@@ -12,12 +13,13 @@ def main(argv=None):
         argv = sys.argv[1:]
 
     parser = argparse.ArgumentParser(description="UCSB AS Elections Tabulator")
-    parser.add_argument("--interface", help="interface mode", dest="interface", choices=["gui"], default="gui")
+    parser.add_argument("--interface", help="interface mode", dest="interface", choices=["gui", "cmd"], default="gui")
     parser.add_argument("--interface-options", help="interface options", dest="interface_options", default="")
     parser_group_election = parser.add_argument_group("election configuration")
     parser_group_election.add_argument("--config", help="election configuration file", dest="config_file")
     parser_group_election.add_argument("--candidates", help="election candidates file", dest="candidate_file")
     parser_group_election.add_argument("--ballots", help="election ballots file", dest="ballot_file")
+    parser_group_election.add_argument("--results", help="election results file", dest="result_file")
     parser_group_logging = parser.add_argument_group("logging")
     parser_group_logging.add_argument("--no-log", help="disable logging for the application", action="store_false", default=True, dest="log_enabled")
     parser_group_logging.add_argument("-ll", "--log-level", help="set the level of logging", default="DEBUG", dest="log_level")
@@ -50,6 +52,9 @@ def main(argv=None):
 
     if parsed_arguments.interface == "gui":
         interfaces.gui.run(parsed_arguments)
+    elif parsed_arguments.interface == "cmd":
+        interfaces.cmd.run(parsed_arguments)
+
 
 if __name__ == "__main__":
     sys.exit(main())

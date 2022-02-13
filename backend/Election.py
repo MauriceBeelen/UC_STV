@@ -59,7 +59,11 @@ class Election:
         # Parse the configuration data.
         for race in configuration["races"]:
             try:
-                new_race = ElectionRace(race["race_id"], race["race_position"], int(race["race_max_winners"]), race["race_extended_data"])
+                new_race = ElectionRace(race["race_id"],
+                                        race["race_position"],
+                                        int(race["race_max_winners"]),
+                                        race["race_extended_data"],
+                                        race["race_quota_algoritm"])
                 self._races.append(new_race)
                 self._race_id[new_race.id()] = new_race
             except ValueError as e:

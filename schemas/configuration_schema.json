@@ -12,6 +12,11 @@
 					"type": "string",
 					"description": "The name of the election position."
 				},
+				"race_quota_algoritm": {
+					"type": "string",
+					"description": "The name of the quota algorithm to use, e.g hare or droop",
+					"enum": ["droop", "hare"]
+				},
 				"race_max_winners": {
 					"type": "integer",
 					"description": "The maximum number of candidates that can win the race."
@@ -30,7 +35,7 @@
 					}
 				}
 			},
-			"required": ["race_id", "race_position", "race_max_winners"],
+			"required": ["race_id", "race_position", "race_quota_algoritm", "race_max_winners"],
 			"additionalProperties": false
 		}
 	},

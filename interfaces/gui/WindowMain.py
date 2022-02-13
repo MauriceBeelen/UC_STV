@@ -267,7 +267,7 @@ class WindowMain(wx.Frame):
         if self._current_worker is None or not self._current_worker.is_alive():
             return
 
-        self._current_worker.set_processing_delay(self.slider_display_speed.GetMax() + 1 - self.slider_display_speed.GetValue())
+        self._current_worker.set_processing_delay(self._get_processing_delay())
 
     def ui_complete_round(self, event):
         self.logger.info("Received `%s` button click.", event.GetEventObject().GetLabelText())
@@ -326,7 +326,9 @@ class WindowMain(wx.Frame):
         self.change_round(election_race.get_round_latest())
         self.label_round.SetLabel("Round " + str(election_race.get_round_latest()))
         self.ui_update_rounds(False)
-        self.label_quota.SetLabel("Race: " + self.label_quota.EscapeMnemonics(election_race.position()) + "\nRace Winning Quota: " + str(election_race.droop_quota()))
+        self.label_quota.SetLabel("Race: " + self.label_quota.EscapeMnemonics(election_race.position()) +
+                                  "\nRace Winning Quota: " + str(election_race.quota()) +
+                                  " (using " + str(election_race.quota_name()) + ")")
         self.grid_display.set_party_color()
 
     def change_round(self, election_round):
@@ -337,13 +339,16 @@ class WindowMain(wx.Frame):
         self.ui_update_statusbar(election_round.parent().state(), election_round.state())
         self.grid_display.colorReset()
 
+    def _get_processing_delay(self, minimum = 0):
+        return self.slider_display_speed.GetMax() - self.slider_display_speed.GetValue()
+
     def complete_current_race(self):
         # Jump to latest round.
         self.ui_disable_all()
         self.change_round(self._current_round.parent().get_round_latest())
         self.combo_box_round.SetSelection(self.combo_box_round.FindString("Latest Round"))
 
-        self._current_worker = TabulationThread(self, self._current_round, 50, self.slider_display_speed.GetMax() + 1 - self.slider_display_speed.GetValue(), TabulationThread.TYPE_COMPLETE_RACE)
+        self._current_worker = TabulationThread(self, self._current_round, 50, self._get_processing_delay(), TabulationThread.TYPE_COMPLETE_RACE)
         self._current_worker.start()
         self.Bind(EVT_TABULATION_PROGRESS, self.tabulation_on_progress)
         self.Bind(EVT_TABULATION_COMPLETE, self.tabulation_on_complete)
@@ -354,7 +359,7 @@ class WindowMain(wx.Frame):
         self.change_round(self._current_round.parent().get_round_latest())
         self.combo_box_round.SetSelection(self.combo_box_round.FindString("Latest Round"))
         self.label_round.SetLabel("Round " + str(self._current_round.parent().get_round_latest()))
-        self._current_worker = TabulationThread(self, self._current_round, 50, self.slider_display_speed.GetMax() + 1 - self.slider_display_speed.GetValue(), TabulationThread.TYPE_COMPLETE_ROUND)
+        self._current_worker = TabulationThread(self, self._current_round, 50, self._get_processing_delay(), TabulationThread.TYPE_COMPLETE_ROUND)
         self._current_worker.start()
         self.Bind(EVT_TABULATION_PROGRESS, self.tabulation_on_progress)
         self.Bind(EVT_TABULATION_COMPLETE, self.tabulation_on_complete)
